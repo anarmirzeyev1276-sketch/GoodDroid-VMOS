@@ -23,29 +23,92 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Install Cordova & Native Dependencies
+      - name: Create Web-based Android Wrapper Structure
         run: |
-          npm install -g cordova
+          # Sadə və sürətli Android layihə strukturu yaradırıq
+          mkdir -p app/src/main/assets/www
+          mkdir -p app/src/main/res/mipmap-hdpi
+          mkdir -p app/src/main/res/values
 
-      - name: Create GoodDroid Project Structure
-        run: |
-          cordova create GoodDroidApp com.gooddroid.v1 "GoodDroid V1"
-          cd GoodDroidApp
-          cordova platform add android@12.0.0
-          rm -rf www/*
-          cp -r ../index.html www/
+          # HTML faylını bura köçürürük
+          cp index.html app/src/main/assets/www/index.html
 
-      - name: Build Android APK (Debug/Release)
+          # AndroidManifest.xml yaradırıq (İnternet icazəsi ilə)
+          cat << 'EOT' > app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.gooddroid.v1">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:allowBackup="false"
+                  android:label="GoodDroid V1"
+                  android:supportsRtl="true"
+                  android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOT
+
+          # MainActivity.java yaradırıq (WebView vasitəsilə HTML-i açır)
+          mkdir -p app/src/main/java/com/gooddroid/v1
+          cat << 'EOT' > app/src/main/java/com/gooddroid/v1/MainActivity.java
+          package com.gooddroid.v1;
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+
+          public class MainActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  WebView webView = new WebView(this);
+                  webView.getSettings().setJavaScriptEnabled(true);
+                  webView.setWebViewClient(new WebViewClient());
+                  webView.loadUrl("file:///android_asset/www/index.html");
+                  setContentView(webView);
+              }
+          }
+          EOT
+
+          # build.gradle fayllarını yaradırıq
+          echo "plugins { id 'com.android.application' }" > build.gradle
+          echo "allprojects { repositories { google(); mavenCentral() } }" > settings.gradle
+          echo "include ':app'" >> settings.gradle
+
+          cat << 'EOT' > app/build.gradle
+          plugins { id 'com.android.application' }
+          android {
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.gooddroid.v1"
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+          }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+          }
+          EOT
+
+          # gradle wrapper fayllarını hazırlayırıq
+          gradle wrapper
+
+      - name: Build APK with Gradle
         run: |
-          cd GoodDroidApp
-          # Gradle və Android mühitini tam avtomatik qidalandırır
-          export JAVA_HOME
-          ./platforms/android/gradlew -p platforms/android assembleDebug
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
       - name: Create Git Release and Upload APK
         uses: softprops/action-gh-release@v2
@@ -53,7 +116,7 @@ jobs:
           tag_name: v1.0.0
           name: GoodDroid V1
           body: "GoodDroid V1 - 35 dil dəstəyi, GoodDroid Defender modulu və VMOS daxili izolyasiyası ilə."
-          files: GoodDroidApp/platforms/android/app/build/outputs/apk/debug/app-debug.apk
+          files: app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
