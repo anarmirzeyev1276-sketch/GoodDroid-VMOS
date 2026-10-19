@@ -1,0 +1,59 @@
+name: Build and Release GoodDroid V1
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Cordova & Native Dependencies
+        run: |
+          npm install -g cordova
+
+      - name: Create GoodDroid Project Structure
+        run: |
+          cordova create GoodDroidApp com.gooddroid.v1 "GoodDroid V1"
+          cd GoodDroidApp
+          cordova platform add android@12.0.0
+          rm -rf www/*
+          cp -r ../index.html www/
+
+      - name: Build Android APK (Debug/Release)
+        run: |
+          cd GoodDroidApp
+          # Gradle və Android mühitini tam avtomatik qidalandırır
+          export JAVA_HOME
+          ./platforms/android/gradlew -p platforms/android assembleDebug
+
+      - name: Create Git Release and Upload APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: GoodDroid V1
+          body: "GoodDroid V1 - 35 dil dəstəyi, GoodDroid Defender modulu və VMOS daxili izolyasiyası ilə."
+          files: GoodDroidApp/platforms/android/app/build/outputs/apk/debug/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
