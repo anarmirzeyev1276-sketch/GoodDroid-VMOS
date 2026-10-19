@@ -25,18 +25,18 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # SDK komponentləri və lisenziyaların avtomatik quraşdırılması
+          sdk-version: '34'
+          build-tools-version: '34.0.0'
+          platforms: 'platforms;android-34'
 
       - name: Create Web-based Android Wrapper Structure
         run: |
-          # Sadə və sürətli Android layihə strukturu yaradırıq
           mkdir -p app/src/main/assets/www
-          mkdir -p app/src/main/res/mipmap-hdpi
-          mkdir -p app/src/main/res/values
-
-          # HTML faylını bura köçürürük
           cp index.html app/src/main/assets/www/index.html
 
-          # AndroidManifest.xml yaradırıq (İnternet icazəsi ilə)
+          # AndroidManifest.xml
           cat << 'EOT' > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="com.gooddroid.v1">
@@ -58,7 +58,7 @@ jobs:
           </manifest>
           EOT
 
-          # MainActivity.java yaradırıq (WebView vasitəsilə HTML-i açır)
+          # MainActivity.java
           mkdir -p app/src/main/java/com/gooddroid/v1
           cat << 'EOT' > app/src/main/java/com/gooddroid/v1/MainActivity.java
           package com.gooddroid.v1;
@@ -80,7 +80,7 @@ jobs:
           }
           EOT
 
-          # build.gradle fayllarını yaradırıq
+          # Gradle Konfiqurasiyaları
           echo "plugins { id 'com.android.application' }" > build.gradle
           echo "allprojects { repositories { google(); mavenCentral() } }" > settings.gradle
           echo "include ':app'" >> settings.gradle
@@ -102,7 +102,6 @@ jobs:
           }
           EOT
 
-          # gradle wrapper fayllarını hazırlayırıq
           gradle wrapper
 
       - name: Build APK with Gradle
